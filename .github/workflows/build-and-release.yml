@@ -1,0 +1,188 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Check for version in commit message
+        id: check_version
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Commit message: $COMMIT_MSG"
+
+          # Check if commit message contains a semver pattern
+          if [[ $COMMIT_MSG =~ v?([0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?) ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            TAG="$VERSION"
+
+            echo "Found version: $VERSION"
+            echo "SHOULD_RELEASE=true" >> $GITHUB_OUTPUT
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+            echo "TAG=$TAG" >> $GITHUB_OUTPUT
+
+            # Determine release type
+            if [[ "$VERSION" == *"-alpha"* ]]; then
+              echo "RELEASE_TYPE=alpha" >> $GITHUB_OUTPUT
+            elif [[ "$VERSION" == *"-beta"* ]]; then
+              echo "RELEASE_TYPE=beta" >> $GITHUB_OUTPUT
+            else
+              echo "RELEASE_TYPE=release" >> $GITHUB_OUTPUT
+            fi
+
+            echo "Release type: $RELEASE_TYPE"
+          else
+            echo "No version found in commit message"
+            echo "SHOULD_RELEASE=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew build
+
+      - name: Get mod info
+        id: mod_info
+        run: |
+          VERSION=$(sed -n 's/^version=//p' gradle.properties | tr -d ' \r\n')
+          MC_VERSION=$(sed -n 's/^minecraft_version=//p' gradle.properties | tr -d ' \r\n')
+          NEOFORGE_VERSION=$(sed -n 's/^neoforge_version=//p' gradle.properties | tr -d ' \r\n')
+          FABRIC_VERSION=$(sed -n 's/^fabric_version=//p' gradle.properties | tr -d ' \r\n')
+          MOD_ID=$(sed -n 's/^mod_id=//p' gradle.properties | tr -d ' \r\n')
+          MOD_NAME=$(sed -n 's/^mod_name=//p' gradle.properties | tr -d ' \r\n')
+          CURSEFORGE_PROJECT_ID=$(sed -n 's/^curseforge_project_id=//p' gradle.properties | tr -d ' \r\n')
+          MODRINTH_PROJECT_ID=$(sed -n 's/^modrinth_project_id=//p' gradle.properties | tr -d ' \r\n')
+
+          echo "Mod version: $VERSION"
+          echo "Minecraft version: $MC_VERSION"
+          echo "NeoForge version: $NEOFORGE_VERSION"
+          echo "Fabric API version: $FABRIC_VERSION"
+
+          cat >> $GITHUB_OUTPUT << EOF
+          VERSION=${VERSION}
+          MC_VERSION=${MC_VERSION}
+          NEOFORGE_VERSION=${NEOFORGE_VERSION}
+          FABRIC_VERSION=${FABRIC_VERSION}
+          MOD_ID=${MOD_ID}
+          MOD_NAME=${MOD_NAME}
+          CURSEFORGE_PROJECT_ID=${CURSEFORGE_PROJECT_ID}
+          MODRINTH_PROJECT_ID=${MODRINTH_PROJECT_ID}
+          EOF
+
+      - name: Find built JAR files
+        id: find_jars
+        run: |
+          # Fabric JARs
+          echo "FABRIC_JAR=$(find fabric/build/libs -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)"
+          echo "FABRIC_JAR=$(find fabric/build/libs -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)" >> $GITHUB_OUTPUT
+
+          # NeoForge JARs
+          echo "NEOFORGE_JAR=$(find neoforge/build/libs -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)"
+          echo "NEOFORGE_JAR=$(find neoforge/build/libs -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)" >> $GITHUB_OUTPUT
+
+      - name: Get previous tag
+        id: prev_tag
+        run: |
+          # Get the most recent tag (for comparison against current commit)
+          tag=$(git tag --sort=-creatordate | head -1 || true)
+          echo "Most recent tag: $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Get commit log
+        id: commit_log
+        run: |
+          if [ -z "${{ steps.prev_tag.outputs.tag }}" ]; then
+            echo "log=- First release" >> "$GITHUB_OUTPUT"
+          else
+            # Use a temporary file to avoid heredoc delimiter issues
+            TEMP_LOG=$(mktemp)
+            git log ${{ steps.prev_tag.outputs.tag }}..HEAD --pretty=format:"- %s (%an)" > "$TEMP_LOG"
+
+            # Use unique delimiter with timestamp (capture once to ensure consistency)
+            DELIMITER="COMMIT_LOG_DELIMITER_$(date +%s)"
+            echo "log<<$DELIMITER" >> "$GITHUB_OUTPUT"
+            cat "$TEMP_LOG" >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_OUTPUT"
+            echo "$DELIMITER" >> "$GITHUB_OUTPUT"
+            rm "$TEMP_LOG"
+          fi
+
+      # Only create tag and release if version was found in commit message
+      - name: Create tag
+        if: steps.check_version.outputs.SHOULD_RELEASE == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag -a ${{ steps.check_version.outputs.TAG }} -m "Release ${{ steps.check_version.outputs.TAG }}"
+          git push origin ${{ steps.check_version.outputs.TAG }}
+
+      - name: Create Release and Upload JARs
+        if: steps.check_version.outputs.SHOULD_RELEASE == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.check_version.outputs.TAG }}
+          name: "${{ steps.mod_info.outputs.MOD_NAME }} v${{ steps.check_version.outputs.TAG }}"
+          body: |
+            ## ${{ steps.mod_info.outputs.MOD_NAME }} v${{ steps.check_version.outputs.TAG }}
+
+            ### Changes
+            ${{ steps.commit_log.outputs.log }}
+
+            ### Build Information
+            - **Minecraft Version:** ${{ steps.mod_info.outputs.MC_VERSION }}
+            - **NeoForge Version:** ${{ steps.mod_info.outputs.NEOFORGE_VERSION }}
+            - **Fabric API Version:** ${{ steps.mod_info.outputs.FABRIC_VERSION }}
+            - **Mod Version:** ${{ steps.mod_info.outputs.VERSION }}
+
+            ### Download
+            Available on [CurseForge](https://www.curseforge.com/minecraft/mc-mods/${{ steps.mod_info.outputs.MOD_ID }}), [Modrinth](https://modrinth.com/mod/${{ steps.mod_info.outputs.MOD_ID }}), and below.
+          draft: false
+          prerelease: ${{ contains(steps.check_version.outputs.VERSION, '-') }}
+          files: |
+            fabric/build/libs/*.jar
+            neoforge/build/libs/*.jar
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to Modrinth and CurseForge
+        if: steps.check_version.outputs.SHOULD_RELEASE == 'true'
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+        run: ./gradlew publishAll --no-configuration-cache
+
+      # Always upload artifacts for every build (even without release)
+      - name: Upload Fabric artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fabric-artifacts
+          path: fabric/build/libs/*.jar
+
+      - name: Upload NeoForge artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: neoforge-artifacts
+          path: neoforge/build/libs/*.jar

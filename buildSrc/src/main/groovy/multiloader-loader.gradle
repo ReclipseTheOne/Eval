@@ -1,5 +1,7 @@
 plugins {
     id 'multiloader-common'
+    id 'com.modrinth.minotaur'
+    id 'net.darkhax.curseforgegradle'
 }
 
 configurations {
@@ -41,4 +43,42 @@ tasks.named('sourcesJar', Jar) {
     from(configurations.commonJava)
     dependsOn(configurations.commonResources)
     from(configurations.commonResources)
+}
+
+modrinth {
+    token = System.getenv('MODRINTH_TOKEN')
+    projectId = modrinth_project_id
+    versionNumber = version
+    versionName = "${mod_name}-${version}-(${project.name.capitalize()})"
+    versionType = 'release'
+    uploadFile = tasks.named('jar')
+    gameVersions = [minecraft_version]
+    loaders = [project.name]
+    additionalFiles = [tasks.named('sourcesJar'), tasks.named('javadoc')]
+    dependencies {
+        if (project.name.equals('fabric')) {
+            required.project "fabric-api"
+        }
+    }
+    syncBodyFrom = rootProject.file('README.md').text
+}
+
+task curseforge(type: net.darkhax.curseforgegradle.TaskPublishCurseForge) {
+    apiToken = System.getenv('CURSEFORGE_TOKEN')
+
+    def mainFile = upload(0, tasks.named('jar'))
+    def sourcesFile = mainFile.withAdditionalFile(tasks.named('sourcesJar'))
+    sourcesFile.displayName = "${mod_name}-${version}-(${project.name.capitalize()})-sources"
+
+    def javadocFile = mainFile.withAdditionalFile(tasks.named('javadoc'))
+    javadocFile.displayName = "${mod_name}-${version}-(${project.name.capitalize()})-javadoc"
+    mainFile.displayName = "${mod_name}-${version}-(${project.name.capitalize()})"
+    mainFile.releaseType = 'release'
+    mainFile.addModLoader(project.name.capitalize())
+    mainFile.addGameVersion(minecraft_version)
+    mainFile.changelog = 'Changelog goes here'
+
+    if (project.name.equals('fabric')) {
+        mainFile.addRequirement('fabric-api')
+    }
 }
