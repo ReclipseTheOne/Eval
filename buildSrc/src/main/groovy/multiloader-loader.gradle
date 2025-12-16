@@ -50,7 +50,8 @@ modrinth {
     projectId = modrinth_project_id
     versionNumber = version
     versionName = "${mod_name}-${version}-(${project.name.capitalize()})"
-    versionType = 'release'
+    versionType = System.getenv('RELEASE_TYPE') ?: 'release'
+    changelog = "Check GitHub for details"
     uploadFile = tasks.named('jar')
     gameVersions = [minecraft_version]
     loaders = [project.name]
@@ -66,17 +67,17 @@ modrinth {
 task curseforge(type: net.darkhax.curseforgegradle.TaskPublishCurseForge) {
     apiToken = System.getenv('CURSEFORGE_TOKEN')
 
-    def mainFile = upload(0, tasks.named('jar'))
+    def mainFile = upload(1405772, tasks.named('jar'))
     def sourcesFile = mainFile.withAdditionalFile(tasks.named('sourcesJar'))
     sourcesFile.displayName = "${mod_name}-${version}-(${project.name.capitalize()})-sources"
 
     def javadocFile = mainFile.withAdditionalFile(tasks.named('javadoc'))
     javadocFile.displayName = "${mod_name}-${version}-(${project.name.capitalize()})-javadoc"
     mainFile.displayName = "${mod_name}-${version}-(${project.name.capitalize()})"
-    mainFile.releaseType = 'release'
+    mainFile.releaseType = (System.getenv('RELEASE_TYPE') ?: 'release').toLowerCase()
     mainFile.addModLoader(project.name.capitalize())
     mainFile.addGameVersion(minecraft_version)
-    mainFile.changelog = 'Changelog goes here'
+    mainFile.changelog = "Check GitHub for details"
 
     if (project.name.equals('fabric')) {
         mainFile.addRequirement('fabric-api')
