@@ -5,6 +5,7 @@ import com.reclipse.eval.EvalConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -42,6 +43,7 @@ public class MixinChatScreen {
             }
 
             cir.setReturnValue(true);
+	        client.setScreen((Screen) null);
 			cir.cancel();
             return;
         }
@@ -59,6 +61,7 @@ public class MixinChatScreen {
             }
 
             cir.setReturnValue(false);
+	        client.setScreen((Screen) null);
 			cir.cancel();
         }
     }
