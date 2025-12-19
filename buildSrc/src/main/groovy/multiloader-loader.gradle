@@ -47,7 +47,7 @@ tasks.named('sourcesJar', Jar) {
 modrinth {
     token = System.getenv('MODRINTH_TOKEN')
     projectId = modrinth_project_id
-    versionNumber = "${mc_file_version}-${project.name.capitalize()}"
+    versionNumber = "${mod_name}-${version}-${mc_file_version}-(${project.name.capitalize()})"
     versionName = "${mod_name}-${version}-${mc_file_version}-(${project.name.capitalize()})"
     versionType = System.getenv('RELEASE_TYPE') ?: 'release'
     changelog = "Check GitHub for details"
