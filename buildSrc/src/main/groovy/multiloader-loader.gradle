@@ -4,6 +4,11 @@ plugins {
     id 'net.darkhax.curseforgegradle'
 }
 
+// mc ver -> MAJOR.MINOR.x
+def mc_ver_parts = minecraft_version.split('\\.')
+def mc_file_version = "${mc_ver_parts[0]}.${mc_ver_parts[1]}.x"
+def next_minor_mc = "${mc_ver_parts[0]}.${mc_ver_parts[1] + 1}"
+
 configurations {
     commonJava{
         canBeResolved = true
@@ -69,10 +74,10 @@ task curseforge(type: net.darkhax.curseforgegradle.TaskPublishCurseForge) {
 
     def mainFile = upload(1405772, tasks.named('jar'))
     def sourcesFile = mainFile.withAdditionalFile(tasks.named('sourcesJar'))
-    sourcesFile.displayName = "${mod_name}-${version}-(${project.name.capitalize()})-sources"
+    sourcesFile.displayName = "${mod_name}-${version}-${mc_file_version}-(${project.name.capitalize()})-sources"
     sourcesFile.changelog = "Check GitHub for details"
 
-    mainFile.displayName = "${mod_name}-${version}-(${project.name.capitalize()})"
+    mainFile.displayName = "${mod_name}-${version}-${mc_file_version}-(${project.name.capitalize()})"
     mainFile.releaseType = (System.getenv('RELEASE_TYPE') ?: 'release').toLowerCase()
     mainFile.addModLoader(project.name)
     mainFile.addGameVersion(minecraft_version)

@@ -3,8 +3,13 @@ plugins {
     id 'maven-publish'
 }
 
+// mc ver -> MAJOR.MINOR.x
+def mc_ver_parts = minecraft_version.split('\\.')
+def mc_file_version = "${mc_ver_parts[0]}.${mc_ver_parts[1]}.x"
+def next_minor_mc = "${mc_ver_parts[0]}.${mc_ver_parts[1] + 1}"
+
 base {
-    archivesName = "${mod_id}-${project.name}-${minecraft_version}"
+    archivesName = "${mod_id}-${project.name}-${mc_file_version}"
 }
 
 java {
@@ -97,7 +102,8 @@ processResources {
             'neoforge_version'             : neoforge_version,
             'neoforge_loader_version_range': neoforge_loader_version_range,
             'credits'                      : credits,
-            'java_version'                 : java_version
+            'java_version'                 : java_version,
+            'next_minor_mc'                : next_minor_mc
     ]
 
     filesMatching(['pack.mcmeta', 'fabric.mod.json', 'META-INF/neoforge.mods.toml', '*.mixins.json']) {
