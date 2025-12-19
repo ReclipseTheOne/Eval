@@ -36,6 +36,17 @@ pluginManagement {
                 includeGroupAndSubgroups('net.minecraftforge')
             }
         }
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = 'NeoForged'
+                    url = uri('https://maven.neoforged.net/releases')
+                }
+            }
+            filter {
+                includeGroupAndSubgroups('net.neoforged')
+            }
+        }
     }
 }
 
@@ -47,4 +58,4 @@ plugins {
 rootProject.name = 'Eval'
 include('common')
 include('fabric')
-include('neoforge')
+include('forge')

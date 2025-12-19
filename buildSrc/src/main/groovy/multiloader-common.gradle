@@ -3,9 +3,9 @@ plugins {
     id 'maven-publish'
 }
 
-// mc ver -> MAJOR.MINOR.x
+// mc ver -> MAJOR.MINOR.x (not included for 1.20.1)
 def mc_ver_parts = minecraft_version.split('\\.')
-def mc_file_version = "${mc_ver_parts[0]}.${mc_ver_parts[1]}.x"
+def mc_file_version = "${mc_ver_parts[0]}.${mc_ver_parts[1]}.1"
 def next_minor_mc = "${mc_ver_parts[0]}.${mc_ver_parts[1] + 1}"
 
 base {
@@ -99,14 +99,15 @@ processResources {
             'mod_id'                       : mod_id,
             'license'                      : license,
             'description'                  : project.description,
-            'neoforge_version'             : neoforge_version,
-            'neoforge_loader_version_range': neoforge_loader_version_range,
+            'forge_version'                : forge_version,
+            'forge_loader_version_range'   : forge_loader_version_range,
+            'forge_version_range'          : forge_version_range,
             'credits'                      : credits,
             'java_version'                 : java_version,
             'next_minor_mc'                : next_minor_mc
     ]
 
-    filesMatching(['pack.mcmeta', 'fabric.mod.json', 'META-INF/neoforge.mods.toml', '*.mixins.json']) {
+    filesMatching(['pack.mcmeta', 'fabric.mod.json', 'META-INF/mods.toml', 'META-INF/neoforge.mods.toml', '*.mixins.json']) {
         expand expandProps
     }
     inputs.properties(expandProps)

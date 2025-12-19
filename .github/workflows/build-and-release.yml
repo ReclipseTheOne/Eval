@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     branches:
-      - main
+      - "**"
 
 jobs:
   build-and-release:
@@ -50,10 +50,41 @@ jobs:
             echo "SHOULD_RELEASE=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Setup JDK 21
+      - name: Get mod info
+        id: mod_info
+        run: |
+          VERSION=$(sed -n 's/^version=//p' gradle.properties | tr -d ' \r\n')
+          MC_VERSION=$(sed -n 's/^minecraft_version=//p' gradle.properties | tr -d ' \r\n')
+          JAVA_VERSION=$(sed -n 's/^java_version=//p' gradle.properties | tr -d ' \r\n')
+          FORGE_VERSION=$(sed -n 's/^forge_version=//p' gradle.properties | tr -d ' \r\n')
+          FABRIC_VERSION=$(sed -n 's/^fabric_version=//p' gradle.properties | tr -d ' \r\n')
+          MOD_ID=$(sed -n 's/^mod_id=//p' gradle.properties | tr -d ' \r\n')
+          MOD_NAME=$(sed -n 's/^mod_name=//p' gradle.properties | tr -d ' \r\n')
+          CURSEFORGE_PROJECT_ID=$(sed -n 's/^curseforge_project_id=//p' gradle.properties | tr -d ' \r\n')
+          MODRINTH_PROJECT_ID=$(sed -n 's/^modrinth_project_id=//p' gradle.properties | tr -d ' \r\n')
+
+          echo "Mod version: $VERSION"
+          echo "Minecraft version: $MC_VERSION"
+          echo "Java version: $JAVA_VERSION"
+          echo "Forge version: $FORGE_VERSION"
+          echo "Fabric API version: $FABRIC_VERSION"
+
+          cat >> $GITHUB_OUTPUT << EOF
+          VERSION=${VERSION}
+          MC_VERSION=${MC_VERSION}
+          JAVA_VERSION=${JAVA_VERSION}
+          FORGE_VERSION=${FORGE_VERSION}
+          FABRIC_VERSION=${FABRIC_VERSION}
+          MOD_ID=${MOD_ID}
+          MOD_NAME=${MOD_NAME}
+          CURSEFORGE_PROJECT_ID=${CURSEFORGE_PROJECT_ID}
+          MODRINTH_PROJECT_ID=${MODRINTH_PROJECT_ID}
+          EOF
+
+      - name: Setup JDK
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: ${{ steps.mod_info.outputs.JAVA_VERSION }}
           distribution: 'temurin'
 
       - name: Setup Gradle
@@ -65,34 +96,6 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew build
 
-      - name: Get mod info
-        id: mod_info
-        run: |
-          VERSION=$(sed -n 's/^version=//p' gradle.properties | tr -d ' \r\n')
-          MC_VERSION=$(sed -n 's/^minecraft_version=//p' gradle.properties | tr -d ' \r\n')
-          NEOFORGE_VERSION=$(sed -n 's/^neoforge_version=//p' gradle.properties | tr -d ' \r\n')
-          FABRIC_VERSION=$(sed -n 's/^fabric_version=//p' gradle.properties | tr -d ' \r\n')
-          MOD_ID=$(sed -n 's/^mod_id=//p' gradle.properties | tr -d ' \r\n')
-          MOD_NAME=$(sed -n 's/^mod_name=//p' gradle.properties | tr -d ' \r\n')
-          CURSEFORGE_PROJECT_ID=$(sed -n 's/^curseforge_project_id=//p' gradle.properties | tr -d ' \r\n')
-          MODRINTH_PROJECT_ID=$(sed -n 's/^modrinth_project_id=//p' gradle.properties | tr -d ' \r\n')
-
-          echo "Mod version: $VERSION"
-          echo "Minecraft version: $MC_VERSION"
-          echo "NeoForge version: $NEOFORGE_VERSION"
-          echo "Fabric API version: $FABRIC_VERSION"
-
-          cat >> $GITHUB_OUTPUT << EOF
-          VERSION=${VERSION}
-          MC_VERSION=${MC_VERSION}
-          NEOFORGE_VERSION=${NEOFORGE_VERSION}
-          FABRIC_VERSION=${FABRIC_VERSION}
-          MOD_ID=${MOD_ID}
-          MOD_NAME=${MOD_NAME}
-          CURSEFORGE_PROJECT_ID=${CURSEFORGE_PROJECT_ID}
-          MODRINTH_PROJECT_ID=${MODRINTH_PROJECT_ID}
-          EOF
-
       - name: Find built JAR files
         id: find_jars
         run: |
@@ -100,9 +103,9 @@ jobs:
           echo "FABRIC_JAR=$(find fabric/build/libs -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)"
           echo "FABRIC_JAR=$(find fabric/build/libs -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)" >> $GITHUB_OUTPUT
 
-          # NeoForge JARs
-          echo "NEOFORGE_JAR=$(find neoforge/build/libs -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)"
-          echo "NEOFORGE_JAR=$(find neoforge/build/libs -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)" >> $GITHUB_OUTPUT
+          # Forge JARs
+          echo "FORGE_JAR=$(find forge/build/libs -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)"
+          echo "FORGE_JAR=$(find forge/build/libs -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)" >> $GITHUB_OUTPUT
 
       - name: Get previous tag
         id: prev_tag
@@ -154,17 +157,17 @@ jobs:
 
             ### Build Information
             - **Minecraft Version:** ${{ steps.mod_info.outputs.MC_VERSION }}
-            - **NeoForge Version:** ${{ steps.mod_info.outputs.NEOFORGE_VERSION }}
+            - **Forge Version:** ${{ steps.mod_info.outputs.FORGE_VERSION }}
             - **Fabric API Version:** ${{ steps.mod_info.outputs.FABRIC_VERSION }}
             - **Mod Version:** ${{ steps.mod_info.outputs.VERSION }}
 
             ### Download
             Available on [CurseForge](https://www.curseforge.com/minecraft/mc-mods/${{ steps.mod_info.outputs.MOD_ID }}), [Modrinth](https://modrinth.com/mod/${{ steps.mod_info.outputs.MOD_ID }}), and below.
           draft: false
-          prerelease: ${{ contains(steps.check_version.outputs.VERSION, '-') }}
+          prerelease: ${{ steps.check_version.outputs.RELEASE_TYPE != 'release' }}
           files: |
             fabric/build/libs/*.jar
-            neoforge/build/libs/*.jar
+            forge/build/libs/*.jar
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to Modrinth and CurseForge
@@ -181,8 +184,8 @@ jobs:
           name: fabric-artifacts
           path: fabric/build/libs/*.jar
 
-      - name: Upload NeoForge artifacts
+      - name: Upload Forge artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: neoforge-artifacts
-          path: neoforge/build/libs/*.jar
+          name: forge-artifacts
+          path: forge/build/libs/*.jar

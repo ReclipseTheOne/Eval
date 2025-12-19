@@ -4,10 +4,9 @@ plugins {
     id 'net.darkhax.curseforgegradle'
 }
 
-// mc ver -> MAJOR.MINOR.x
+// mc ver -> MAJOR.MINOR.x (not included for 1.20 since i gotta do diff releases)
 def mc_ver_parts = minecraft_version.split('\\.')
-def mc_file_version = "${mc_ver_parts[0]}.${mc_ver_parts[1]}.x"
-def next_minor_mc = "${mc_ver_parts[0]}.${mc_ver_parts[1] + 1}"
+def mc_file_version = "1.20.1"
 
 configurations {
     commonJava{
@@ -19,11 +18,6 @@ configurations {
 }
 
 dependencies {
-    compileOnly(project(':common')) {
-        capabilities {
-            requireCapability "$group:$mod_id"
-        }
-    }
     commonJava project(path: ':common', configuration: 'commonJava')
     commonResources project(path: ':common', configuration: 'commonResources')
 }

@@ -5,11 +5,12 @@ plugins {
 repositories {
     gradlePluginPortal()
     maven {
-        url "https://plugins.gradle.org/m2/"
+        url 'https://repo.spongepowered.org/repository/maven-public'
     }
 }
 
 dependencies {
     implementation 'com.modrinth.minotaur:Minotaur:2.+'
     implementation 'net.darkhax.curseforgegradle:net.darkhax.curseforgegradle.gradle.plugin:1.1.15'
+    implementation 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
 }
