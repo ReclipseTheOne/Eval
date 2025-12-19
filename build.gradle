@@ -6,5 +6,5 @@ plugins {
 tasks.register('publishAll') {
     group = 'publishing'
     description = 'Publishes all loader versions to Modrinth and CurseForge'
-    dependsOn ':fabric:modrinth', ':neoforge:modrinth', ':fabric:curseforge', ':neoforge:curseforge'
+    dependsOn ':fabric:modrinth', ':forge:modrinth', ':fabric:curseforge', ':forge:curseforge'
 }
